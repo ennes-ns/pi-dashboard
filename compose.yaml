@@ -7,14 +7,14 @@ services:
     restart: always
     privileged: true
     network_mode: host
-    tty: true
     stdin_open: true
+    tty: true
     devices:
       - "/dev/tty1:/dev/tty1"
     volumes:
       - ./dashboard:/app
-    # Clean execution: we map input/output directly to the physical TTY
-    command: sh -c "sleep 5 && /app/tmp/main < /dev/tty1 > /dev/tty1"
+    # We draaien de app normaal in de container
+    command: air -c .air.toml
 
   controller:
     build:

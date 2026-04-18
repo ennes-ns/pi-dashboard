@@ -128,7 +128,8 @@ func main() {
 		view := r.URL.Query().Get("view")
 		if view != "" {
 			p.Send(switchViewMsg(view))
-			fmt.Fprintf(w, "OK")
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, "OK: Switched to %s", view)
 		}
 	})
 

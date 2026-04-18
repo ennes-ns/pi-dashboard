@@ -1,15 +1,16 @@
 # PI-DASHBOARD: Operational Directives
 
 ## ⚠️ Critical Constraints
-- **Zero Input Environment:** De Pi heeft GEEN toetsenbord of muis. Het dashboard mag NOOIT wachten op input. Alle interactie verloopt via de Stream Deck (WebSocket/HTTP).
-- **TTY1 Primary:** De HDMI-output is gekoppeld aan TTY1. Gebruik `openvt -c 1` voor injectie.
+- **Native Display Requirement:** Het Go Dashboard MOET native draaien (via systemd) om de 1080p TTY1 stabiel aan te sturen. Docker-mapping van TTY1 bleek onbetrouwbaar voor Bubble Tea UI.
+- **Zero Input Environment:** De Pi heeft GEEN toetsenbord. Alle interactie verloopt via de Stream Deck (WebSocket/HTTP).
 - **Atomic Refactors:** Houd wijzigingen klein en modulair (per bestand) om fouten in de TUI-layout te voorkomen.
 
-## 🛠️ Dashboard Management
-- **Binary Path:** `/app/tmp/main` (gegenereerd door Air).
-- **Restart Logic:** De 5-tap restart op de Stream Deck is de enige manier om de controller/dashboard veilig te herstarten zonder SSH.
+## 🛠️ Dashboard Management (Native)
+- **Binary:** `/home/icarus/docker/pi-dashboard/dashboard/local-dash`
+- **Service:** `pi-dashboard.service`
+- **Build:** `cd dashboard && go build -o local-dash .`
 
 ## 📺 Kiosk Protocol
-1. Stop `getty@tty1.service`.
-2. Disable terminal blanking (`setterm -blank 0`).
-3. Injecteer Docker exec via `openvt`.
+1. Het dashboard wordt beheerd door `systemd`.
+2. De Stream Deck controller draait in **Docker** (`streamdeck-daemon`).
+3. Communicatie verloopt via `http://localhost:8080`.
