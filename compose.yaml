@@ -6,9 +6,11 @@ services:
     tty: true
     stdin_open: true
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080" # Alleen bereikbaar vanaf de Pi zelf
     networks:
       - dashboard-net
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   dashboard-net:
