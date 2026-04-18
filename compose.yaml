@@ -1,0 +1,15 @@
+services:
+  pi-dashboard:
+    build: .
+    container_name: pi-dashboard
+    restart: always
+    tty: true
+    stdin_open: true
+    ports:
+      - "8080:8080"
+    networks:
+      - dashboard-net
+
+networks:
+  dashboard-net:
+    driver: bridge
