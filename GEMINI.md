@@ -1,16 +1,16 @@
 # PI-DASHBOARD: Operational Directives
 
 ## ⚠️ Critical Constraints
-- **Native Display Requirement:** Het Go Dashboard MOET native draaien (via systemd) om de 1080p TTY1 stabiel aan te sturen. Docker-mapping van TTY1 bleek onbetrouwbaar voor Bubble Tea UI.
-- **Zero Input Environment:** De Pi heeft GEEN toetsenbord. Alle interactie verloopt via de Stream Deck (WebSocket/HTTP).
-- **Atomic Refactors:** Houd wijzigingen klein en modulair (per bestand) om fouten in de TUI-layout te voorkomen.
+- **Native Display Requirement:** The Go Dashboard MUST run natively (via systemd) to stably drive the 1080p TTY1. Docker TTY mapping proved unreliable for the Bubble Tea UI.
+- **Zero Input Environment:** The Pi has NO keyboard or mouse. All interaction is handled via the Stream Deck (WebSocket/HTTP).
+- **Atomic Refactors:** Keep changes small and modular (per file) to prevent regressions in the TUI layout.
 
 ## 🛠️ Dashboard Management (Native)
-- **Binary:** `/home/icarus/docker/pi-dashboard/dashboard/local-dash`
-- **Service:** `pi-dashboard.service`
-- **Build:** `cd dashboard && go build -o local-dash .`
+- **Binary Path:** `/home/icarus/docker/pi-dashboard/dashboard/local-dash`
+- **Service Name:** `pi-dashboard.service`
+- **Build Command:** `cd dashboard && go build -o local-dash .`
 
 ## 📺 Kiosk Protocol
-1. Het dashboard wordt beheerd door `systemd`.
-2. De Stream Deck controller draait in **Docker** (`streamdeck-daemon`).
-3. Communicatie verloopt via `http://localhost:8080`.
+1. The dashboard is managed by `systemd`.
+2. The Stream Deck controller runs in **Docker** (`streamdeck-daemon`).
+3. Communication is established via `http://localhost:8080`.
