@@ -1,9 +1,20 @@
-# PI-DASHBOARD TODO
+# Roadmap & TODO
 
-- [ ] Basic Hello World TUI in Go (Bubble Tea).
-- [ ] Dockerfile setup (multi-stage).
-- [ ] Docker Compose voor makkelijke start/stop.
-- [ ] Implementeer HTTP server in Go app voor view-switching.
-- [ ] Verbinden met Stream Deck container events.
-- [ ] Systemd service voor auto-boot naar TTY1.
-- [ ] Custom 1080p layout (CPU, RAM, Netwerk, Docker stats).
+## Phase 1: Core Foundation [DONE]
+- [x] Monorepo restructuring.
+- [x] Unified Docker Compose environment.
+- [x] WebSocket backbone implementation.
+- [x] Atomic 5-tap restart logic.
+- [x] 1080p High-Res TUI layout.
+
+## Phase 2: Enhanced Monitoring [IN PROGRESS]
+- [ ] Add real-time Docker container status monitoring.
+- [ ] Implement Network I/O throughput tracking.
+- [ ] Add Disk space utilization widgets.
+- [ ] Temperature-based fan control alerts.
+
+## Phase 3: UX & Interface [TODO]
+- [ ] Implement custom icons (PNG) instead of text-rendered icons.
+- [ ] Add a "Log Viewer" view for streaming container logs.
+- [ ] Support for multiple Stream Deck pages/folders.
+- [ ] MQTT integration for external sensor data.
