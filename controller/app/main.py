@@ -10,11 +10,14 @@ from modules.actions import handle_restart_logic, switch_dashboard_view
 exit_event = threading.Event()
 manager = StreamDeckManager(exit_event)
 
-# State tracking to prevent flashing
-last_rendered_view = None
-last_rendered_notifications_count = -1
-last_rendered_restart_count = -1
-last_rendered_brightness = -1
+# State tracking voor dirty checking
+last_state = {
+    "view": None,
+    "notif_count": -1,
+    "restart_count": -1,
+    "brightness": -1,
+    "dash_view": None
+}
 
 def ws_listener():
     while not exit_event.is_set():
@@ -26,18 +29,16 @@ def ws_listener():
             exit_event.wait(5)
 
 def update_display_loop():
-    global last_rendered_view, last_rendered_notifications_count, last_rendered_restart_count, last_rendered_brightness
-    
+    global last_state
     while not exit_event.is_set():
         with manager.lock:
             now = time.time()
             
-            # Cooldown logic for restart button (Fix #2)
-            if manager.state["restart_count"] > 0:
-                if now - manager.state["last_restart_press"] > 10:
-                    manager.state["restart_count"] = 0
+            # Restart Cooldown (Atomic check)
+            if manager.state["restart_count"] > 0 and now - manager.state["last_restart_press"] > 10:
+                manager.state["restart_count"] = 0
             
-            # Sleep logic (60s timeout)
+            # Sleep logic
             if now - manager.state["last_interaction"] > 60:
                 if not manager.state["is_sleeping"]:
                     manager.state["is_sleeping"] = True
@@ -46,13 +47,13 @@ def update_display_loop():
             if not manager.state["is_sleeping"]:
                 manager.deck.set_brightness(manager.state["brightness"])
                 
-                # Dirty checking to prevent flashing (Fix #1)
-                notif_count = len(manager.state["notifications"])
+                # Dirty check: Vergelijk huidige state met de vorige rendered state
+                current_notif_count = len(manager.state["notifications"])
                 needs_update = (
-                    manager.state["current_view"] != last_rendered_view or
-                    notif_count != last_rendered_notifications_count or
-                    manager.state["restart_count"] != last_rendered_restart_count or
-                    manager.state["brightness"] != last_rendered_brightness
+                    manager.state["current_view"] != last_state["view"] or
+                    current_notif_count != last_state["notif_count"] or
+                    manager.state["restart_count"] != last_state["restart_count"] or
+                    manager.state["brightness"] != last_state["brightness"]
                 )
                 
                 if needs_update:
@@ -62,11 +63,13 @@ def update_display_loop():
                         render_blank_view(manager.deck, render_key)
                         manager.deck.set_key_image(0, render_key(manager.deck, "BACK", bg="gray"))
                     
-                    # Update cache
-                    last_rendered_view = manager.state["current_view"]
-                    last_rendered_notifications_count = notif_count
-                    last_rendered_restart_count = manager.state["restart_count"]
-                    last_rendered_brightness = manager.state["brightness"]
+                    # Cache de huidige state
+                    last_state.update({
+                        "view": manager.state["current_view"],
+                        "notif_count": current_notif_count,
+                        "restart_count": manager.state["restart_count"],
+                        "brightness": manager.state["brightness"]
+                    })
             
         exit_event.wait(0.1)
 
@@ -79,9 +82,9 @@ def key_callback(deck, key, pressed):
             return
             
         if manager.state["current_view"] == "home":
-            if key == 0: switch_dashboard_view("Home")
-            elif key == 1: switch_dashboard_view("Network")
-            elif key == 2: switch_dashboard_view("Docker")
+            if key == 0: switch_dashboard_view(manager, "Home")
+            elif key == 1: switch_dashboard_view(manager, "Network")
+            elif key == 2: switch_dashboard_view(manager, "Docker")
             elif key == 4: manager.state["current_view"] = "inbox"
             elif key == 10: manager.state["brightness"] = max(0, manager.state["brightness"] - 10)
             elif key == 11: manager.state["brightness"] = min(100, manager.state["brightness"] + 10)

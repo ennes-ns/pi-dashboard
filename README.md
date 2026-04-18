@@ -1,10 +1,10 @@
-# PI-DASHBOARD v2.0
+# PI-DASHBOARD v2.0 (WIP)
 
 [![Go Version](https://img.shields.io/badge/Go-1.24-blue.svg)](https://golang.org/)
 [![Python Version](https://img.shields.io/badge/Python-3.11-yellow.svg)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
+[![Status](https://img.shields.io/badge/Status-Work%20in%20Progress-orange.svg)](https://github.com/ennes-ns/pi-dashboard)
 
-A high-performance, minimalist TUI ecosystem for Raspberry Pi 5. PI-DASHBOARD transforms your terminal into a 1080p system sentinel, fully integrated with Elgato Stream Deck hardware.
+**⚠️ Status: Work In Progress** - De architectuur is onlangs gemigreerd naar een hybride model (Native + Docker). View-switching en real-time alerting zijn in actieve ontwikkeling.
 
 ---
 
@@ -17,23 +17,23 @@ For maximum stability on 1080p TTY displays, PI-DASHBOARD uses a **Hybrid Archit
 
 ---
 
+## 🛠️ Current Focus
+- [ ] Stabilizing view-switching synchronization.
+- [ ] Optimizing TTY rendering for high-resolution displays.
+- [ ] Finalizing Stream Deck action modules.
+
+---
+
 ## 🚦 Quick Start
 
 ### 1. Build and Run Dashboard (Native)
 ```bash
 cd dashboard
 go build -o local-dash .
-sudo systemctl enable --now ./pi-dashboard.service
+sudo systemctl enable --now pi-dashboard.service
 ```
 
 ### 2. Run Controller (Docker)
 ```bash
 docker compose up -d controller
 ```
-
----
-
-## 🛠️ Tech Stack
-- **Dashboard:** Go 1.24, Bubble Tea, Lipgloss, gopsutil.
-- **Controller:** Python 3.11, StreamDeck-Python-SDK, Flask.
-- **Backbone:** HTTP/WebSocket on `localhost:8080`.
