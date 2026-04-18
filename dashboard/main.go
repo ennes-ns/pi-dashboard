@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,57 +16,31 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-// --- WebSocket Support ---
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
+var (
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#00FF00")).
+			Padding(1, 4).
+			BorderStyle(lipgloss.DoubleBorder()).
+			BorderForeground(lipgloss.Color("#00FF00"))
+
+	boxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#555555")).
+			Padding(2).
+			Width(60).
+			Height(15).
+			Align(lipgloss.Center)
+
+	highlight = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00")).Bold(true)
+)
 
 type hub struct {
-	clients    map[*websocket.Conn]bool
-	broadcast  chan []byte
-	register   chan *websocket.Conn
-	unregister chan *websocket.Conn
-	mu         sync.Mutex
+	clients   map[*websocket.Conn]bool
+	broadcast chan []byte
+	mu        sync.Mutex
 }
 
-func newHub() *hub {
-	return &hub{
-		clients:    make(map[*websocket.Conn]bool),
-		broadcast:  make(chan []byte),
-		register:   make(chan *websocket.Conn),
-		unregister: make(chan *websocket.Conn),
-	}
-}
-
-func (h *hub) run() {
-	for {
-		select {
-		case client := <-h.register:
-			h.mu.Lock()
-			h.clients[client] = true
-			h.mu.Unlock()
-		case client := <-h.unregister:
-			h.mu.Lock()
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				client.Close()
-			}
-			h.mu.Unlock()
-		case message := <-h.broadcast:
-			h.mu.Lock()
-			for client := range h.clients {
-				err := client.WriteMessage(websocket.TextMessage, message)
-				if err != nil {
-					client.Close()
-					delete(h.clients, client)
-				}
-			}
-			h.mu.Unlock()
-		}
-	}
-}
-
-// --- Dashboard Model ---
 type model struct {
 	currentView string
 	cpuUsage    float64
@@ -96,32 +69,14 @@ func (m model) tickStats() tea.Cmd {
 		vm, _ := mem.VirtualMemory()
 		h, _ := host.Info()
 		l, _ := load.Avg()
-
-		// Real-time alerting via WebSocket
-		if c[0] > 90 {
-			m.hub.broadcast <- []byte("ALERT: HIGH CPU USAGE")
-		}
-
-		return statsMsg{
-			cpuUsage: c[0],
-			memUsage: vm.UsedPercent,
-			uptime:   h.Uptime,
-			loadAvg:  l,
-		}
+		return statsMsg{cpuUsage: c[0], memUsage: vm.UsedPercent, uptime: h.Uptime, loadAvg: l}
 	})
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.String() == "q" || msg.String() == "ctrl+c" {
-			return m, tea.Quit
-		}
 	case statsMsg:
-		m.cpuUsage = msg.cpuUsage
-		m.memUsage = msg.memUsage
-		m.uptime = msg.uptime
-		m.loadAvg = msg.loadAvg
+		m.cpuUsage, m.memUsage, m.uptime, m.loadAvg = msg.cpuUsage, msg.memUsage, msg.uptime, msg.loadAvg
 		return m, m.tickStats()
 	case switchViewMsg:
 		m.currentView = strings.ToUpper(string(msg))
@@ -130,25 +85,52 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00D7FF")).Border(lipgloss.RoundedBorder())
-	header := titleStyle.Render(" PI-DASHBOARD v2.1 (WEBSOCKET ENABLED) ")
-
-	body := fmt.Sprintf("VIEW: %s\nCPU: %.1f%%\nMEM: %.1f%%", m.currentView, m.cpuUsage, m.memUsage)
+	ascii := `
+ ██╗  ██╗███████╗██╗     ██╗      ██████╗     ██╗    ██╗ ██████╗ ██████╗ ██╗     ██████╗ 
+ ██║  ██║██╔════╝██║     ██║     ██╔═══██╗    ██║    ██║██╔═══██╗██╔══██╗██║     ██╔══██╗
+ ███████║█████╗  ██║     ██║     ██║   ██║    ██║ █╗ ██║██║   ██║██████╔╝██║     ██║  ██║
+ ██╔══██║██╔══╝  ██║     ██║     ██║   ██║    ██║███╗██║██║   ██║██╔══██╗██║     ██║  ██║
+ ██║  ██║███████╗███████╗███████╗╚██████╔╝    ╚███╔███╔╝╚██████╔╝██║  ██║███████╗██████╔╝
+ ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝ ╚═════╝      ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝ 
+`
+	header := titleStyle.Render(ascii)
 	
-	return lipgloss.Place(1920, 1080, lipgloss.Center, lipgloss.Center, 
-		lipgloss.JoinVertical(lipgloss.Center, header, body))
+	statsContent := fmt.Sprintf(
+		"\n%s\n\nCPU LOAD: %.1f%%\nMEMORY:   %.1f%%\nUPTIME:   %d HRS\nLOAD:     %.2f",
+		highlight.Render("SYSTEM MONITOR"),
+		m.cpuUsage, m.memUsage, m.uptime/3600, m.loadAvg.Load1,
+	)
+	
+	viewContent := fmt.Sprintf(
+		"\n%s\n\nACTIVE VIEW: %s\nSTATUS:      %s\nCONTROL:     STREAMDECK",
+		highlight.Render("INTERFACE STATE"),
+		m.currentView,
+		"SECURE",
+	)
+
+	leftBox := boxStyle.Render(statsContent)
+	rightBox := boxStyle.Render(viewContent)
+	
+	mainContent := lipgloss.JoinHorizontal(lipgloss.Center, leftBox, rightBox)
+	
+	ui := lipgloss.JoinVertical(lipgloss.Center, header, "\n", mainContent)
+	
+	return lipgloss.Place(1920, 1080, lipgloss.Center, lipgloss.Center, ui)
 }
 
 func main() {
-	h := newHub()
-	go h.run()
-
+	// Simple Hub for WebSocket
+	h := &hub{clients: make(map[*websocket.Conn]bool), broadcast: make(chan []byte)}
+	
 	m := model{currentView: "HOME", hub: h, loadAvg: &load.AvgStat{}}
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 		conn, _ := upgrader.Upgrade(w, r, nil)
-		h.register <- conn
+		h.mu.Lock()
+		h.clients[conn] = true
+		h.mu.Unlock()
 	})
 
 	http.HandleFunc("/switch", func(w http.ResponseWriter, r *http.Request) {
