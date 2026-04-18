@@ -1,20 +1,16 @@
 # Roadmap & TODO
 
 ## Phase 1: Core Foundation [DONE]
-- [x] Monorepo restructuring.
-- [x] Unified Docker Compose environment.
-- [x] WebSocket backbone implementation.
-- [x] Atomic 5-tap restart logic.
-- [x] 1080p High-Res TUI layout.
+- [x] Purge experimental terminal bloat (Cage, Sway, etc.).
+- [x] Implementation of Native TTY btop dashboard.
+- [x] Robust systemd kiosk service.
+- [x] Clean monorepo structure with split configs.
 
-## Phase 2: Enhanced Monitoring [IN PROGRESS]
-- [ ] Add real-time Docker container status monitoring.
-- [ ] Implement Network I/O throughput tracking.
-- [ ] Add Disk space utilization widgets.
-- [ ] Temperature-based fan control alerts.
+## Phase 2: Controller Refinement [IN PROGRESS]
+- [ ] Stabilize WebSocket alerting backbone.
+- [ ] Add more safety-tap confirmations for server macros.
+- [ ] Implement multi-page Stream Deck navigation.
 
-## Phase 3: UX & Interface [TODO]
-- [ ] Implement custom icons (PNG) instead of text-rendered icons.
-- [ ] Add a "Log Viewer" view for streaming container logs.
-- [ ] Support for multiple Stream Deck pages/folders.
-- [ ] MQTT integration for external sensor data.
+## Phase 3: Hardware Monitoring [TODO]
+- [ ] Add custom sensors for fan speed and power consumption.
+- [ ] Implement visual alarms on Stream Deck for high-temp states.

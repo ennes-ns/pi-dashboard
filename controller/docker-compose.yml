@@ -1,19 +1,13 @@
 services:
-  streamdeck-daemon:
-    build: .
+  controller:
+    build:
+      context: .
     container_name: streamdeck-daemon
     privileged: true
     restart: unless-stopped
+    network_mode: host
     volumes:
       - /dev/bus/usb:/dev/bus/usb
-      # Mount the app folder for easy development without rebuilding (optional)
       - ./app:/app
-    # Expose port for the incoming Flask API (now using host networking)
-    network_mode: "host"
     environment:
-      # Change these to your actual VPS Tailscale IP
-      - VPS_MONITOR_ENDPOINT=http://100.x.y.z:5000/api/stats
-      - MACRO_RESTART_URL=http://100.x.y.z:5000/api/restart
-    # Ensure Docker container runs with correct context
-    # Sometimes it requires running as root for early development mapping
-    user: root
+      - DASHBOARD_WS_URL=ws://localhost:8080/ws

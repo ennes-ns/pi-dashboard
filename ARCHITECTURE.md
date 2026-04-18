@@ -1,25 +1,22 @@
-# Technical Architecture: Hybrid Native-Container Model
+# Technical Architecture: Native TTY Model
 
-## Why Hybrid?
-During development, we discovered that Docker's TTY mapping for high-resolution terminal applications (Bubble Tea) introduced significant artifacts and input/output latency on Raspberry Pi 5. To achieve industrial-grade stability, we moved the display engine to a native process while keeping the control plane containerized.
+## Design Philosophy
+PI-DASHBOARD follows the principle of **Maximum Native Performance**. By stripping away graphical layers (Wayland/X11), we ensure the system resources are dedicated to actual workloads while maintaining a robust monitoring interface.
 
 ## Component Breakdown
 
-### 🖥️ Native Dashboard (Go)
-- **Role:** High-Res Display & System Metrics.
-- **Process:** Managed by `pi-dashboard.service`.
-- **TTY Target:** Direct binding to `/dev/tty1`.
-- **API:** Exposes a local-only server on port 8080 for view switching and WebSocket alerts.
+### 🖥️ Native Dashboard (btop)
+- **Role:** High-Density System Monitoring.
+- **Process:** Managed by `btop-kiosk.service` running as `root`.
+- **TTY Target:** Direct hardware binding to `/dev/tty1`.
+- **Configuration:** No-skin (Default theme) to ensure compatibility with 16-color Linux Console limitations.
 
 ### ⌨️ Containerized Controller (Python)
-- **Role:** HID Management & UI Logic.
-- **Container:** `streamdeck-daemon`.
-- **Connectivity:** Uses `network_mode: host` to communicate with the native Dashboard.
+- **Role:** HID Management & State Persistence.
+- **Container:** `streamdeck-daemon` (Managed via `./controller/docker-compose.yml`).
 - **Safety:** Implements Atomic 5-tap confirmation for critical server actions.
 
-## Communication Flow
-1. User presses button on **Stream Deck**.
-2. **Controller (Docker)** receives HID event.
-3. **Controller** sends HTTP GET to `localhost:8080/switch`.
-4. **Dashboard (Native)** updates TUI state.
-5. **Dashboard** pushes real-time system alerts back to **Controller** via WebSocket.
+## Deployment & Security
+- **Hardened Kiosk:** The default Linux login (`getty@tty1`) is masked to prevent login prompt leakage.
+- **Power Management:** Screen blanking is disabled at the terminal level via `setterm`.
+- **Zero Input:** The TTY is configured as output-only, optimized for headless operation.

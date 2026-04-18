@@ -1,0 +1,16 @@
+services:
+  dashboard:
+    build:
+      context: .
+      target: dev
+    container_name: pi-dashboard
+    restart: always
+    privileged: true
+    network_mode: host
+    stdin_open: true
+    tty: true
+    devices:
+      - "/dev/tty1:/dev/tty1"
+    volumes:
+      - .:/app
+    command: air -c .air.toml

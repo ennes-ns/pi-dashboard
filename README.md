@@ -1,39 +1,43 @@
-# PI-DASHBOARD v2.0 (WIP)
+# PI-DASHBOARD v2.1 (Minimalist)
 
-[![Go Version](https://img.shields.io/badge/Go-1.24-blue.svg)](https://golang.org/)
-[![Python Version](https://img.shields.io/badge/Python-3.11-yellow.svg)](https://www.python.org/)
-[![Status](https://img.shields.io/badge/Status-Work%20in%20Progress-orange.svg)](https://github.com/ennes-ns/pi-dashboard)
+[![Status](https://img.shields.io/badge/Status-Stable-green.svg)](https://github.com/ennes-ns/pi-dashboard)
 
-**⚠️ Status: Work In Progress** - De architectuur is onlangs gemigreerd naar een hybride model (Native + Docker). View-switching en real-time alerting zijn in actieve ontwikkeling.
+A professional, high-performance monitoring ecosystem for Raspberry Pi 5. PI-DASHBOARD is optimized for extreme stability and zero system overhead, utilizing the native Linux console (TTY) for the dashboard and a containerized controller for the interface.
 
 ---
 
-## 🏗️ Architecture: The Hybrid Model
+## 🏗️ Architecture: The Straight TTY Model
 
-For maximum stability on 1080p TTY displays, PI-DASHBOARD uses a **Hybrid Architecture**:
+To achieve maximum reliability and eliminate GPU-driver artifacts, PI-DASHBOARD uses a **Native Console Architecture**:
 
-1.  **Dashboard (The Brain):** A native Go application running as a systemd service. This ensures jitter-free, pixel-perfect rendering direct to HDMI via `/dev/tty1`.
-2.  **Controller (The Interface):** A containerized Python application that manages Stream Deck HID communication and WebSocket alerting.
-
----
-
-## 🛠️ Current Focus
-- [ ] Stabilizing view-switching synchronization.
-- [ ] Optimizing TTY rendering for high-resolution displays.
-- [ ] Finalizing Stream Deck action modules.
+1.  **Dashboard (The Brain):** A native `btop` instance running as a dedicated systemd service. It claims `/dev/tty1` directly, providing a high-density system overview without the overhead of X11, Wayland, or terminal emulators.
+2.  **Controller (The Interface):** A containerized Python application that manages Stream Deck HID communication and state management.
 
 ---
 
-## 🚦 Quick Start
+## 🚀 Deployment
 
-### 1. Build and Run Dashboard (Native)
+### 1. Dashboard (Native)
+The dashboard is managed by the `btop-kiosk.service`. It is pre-configured to:
+- Hide the terminal cursor.
+- Disable screen blanking and power saving.
+- Bind directly to TTY1 (HDMI output).
+
 ```bash
-cd dashboard
-go build -o local-dash .
-sudo systemctl enable --now pi-dashboard.service
+sudo systemctl enable --now btop-kiosk.service
 ```
 
-### 2. Run Controller (Docker)
+### 2. Controller (Docker)
+The controller handles the physical Stream Deck interaction.
+
 ```bash
-docker compose up -d controller
+cd controller
+docker compose up -d
 ```
+
+---
+
+## 🛠️ Tech Stack
+- **Dashboard:** Native `btop` (16-color TTY optimized).
+- **Controller:** Python 3.11, StreamDeck-Python-SDK.
+- **Display:** Physical TTY1 (HDMI-A-1).
