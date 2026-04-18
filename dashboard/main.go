@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,31 +17,27 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#00FF00")).
-			Padding(1, 4).
-			BorderStyle(lipgloss.DoubleBorder()).
-			BorderForeground(lipgloss.Color("#00FF00"))
-
-	boxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#555555")).
-			Padding(2).
-			Width(60).
-			Height(15).
-			Align(lipgloss.Center)
-
-	highlight = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00")).Bold(true)
-)
-
+// --- WebSocket Hub ---
 type hub struct {
 	clients   map[*websocket.Conn]bool
 	broadcast chan []byte
 	mu        sync.Mutex
 }
 
+func (h *hub) run() {
+	for {
+		select {
+		case msg := <-h.broadcast:
+			h.mu.Lock()
+			for client := range h.clients {
+				client.WriteMessage(websocket.TextMessage, msg)
+			}
+			h.mu.Unlock()
+		}
+	}
+}
+
+// --- Dashboard Model ---
 type model struct {
 	currentView string
 	cpuUsage    float64
@@ -56,8 +53,6 @@ type statsMsg struct {
 	uptime   uint64
 	loadAvg  *load.AvgStat
 }
-
-type switchViewMsg string
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(m.tickStats(), tea.EnterAltScreen)
@@ -85,43 +80,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	// Full Screen Styles
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00FF00")).Padding(1, 2).BorderStyle(lipgloss.DoubleBorder())
+	boxStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(1, 4).Width(80).Height(20)
+
 	ascii := `
- ██╗  ██╗███████╗██╗     ██╗      ██████╗     ██╗    ██╗ ██████╗ ██████╗ ██╗     ██████╗ 
- ██║  ██║██╔════╝██║     ██║     ██╔═══██╗    ██║    ██║██╔═══██╗██╔══██╗██║     ██╔══██╗
- ███████║█████╗  ██║     ██║     ██║   ██║    ██║ █╗ ██║██║   ██║██████╔╝██║     ██║  ██║
- ██╔══██║██╔══╝  ██║     ██║     ██║   ██║    ██║███╗██║██║   ██║██╔══██╗██║     ██║  ██║
- ██║  ██║███████╗███████╗███████╗╚██████╔╝    ╚███╔███╔╝╚██████╔╝██║  ██║███████╗██████╔╝
- ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝ ╚═════╝      ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝ 
+  _    _ ______ _      _       ____   __          ______  _____  _      _____  
+ | |  | |  ____| |    | |     / __ \  \ \        / / __ \|  __ \| |    |  __ \ 
+ | |__| | |__  | |    | |    | |  | |  \ \  /\  / / |  | | |__) | |    | |  | |
+ |  __  |  __| | |    | |    | |  | |   \ \/  \/ /| |  | |  _  /| |    | |  | |
+ | |  | | |____| |____| |____| |__| |    \  /\  / | |__| | | \ \| |____| |__| |
+ |_|  |_|______|______|______|____/      \/  \/   \____/|_|  \_\______|_____/ 
 `
 	header := titleStyle.Render(ascii)
 	
-	statsContent := fmt.Sprintf(
-		"\n%s\n\nCPU LOAD: %.1f%%\nMEMORY:   %.1f%%\nUPTIME:   %d HRS\nLOAD:     %.2f",
-		highlight.Render("SYSTEM MONITOR"),
-		m.cpuUsage, m.memUsage, m.uptime/3600, m.loadAvg.Load1,
-	)
-	
-	viewContent := fmt.Sprintf(
-		"\n%s\n\nACTIVE VIEW: %s\nSTATUS:      %s\nCONTROL:     STREAMDECK",
-		highlight.Render("INTERFACE STATE"),
+	content := fmt.Sprintf(
+		"\n%s\n\nCPU:  %.1f%%\nMEM:  %.1f%%\nLOAD: %.2f %.2f %.2f\nUPTIME: %d HRS\nVIEW: %s",
+		lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFF00")).Render("SYSTEM SENTINEL v2.0"),
+		m.cpuUsage, m.memUsage, m.loadAvg.Load1, m.loadAvg.Load5, m.loadAvg.Load15,
+		m.uptime/3600,
 		m.currentView,
-		"SECURE",
 	)
 
-	leftBox := boxStyle.Render(statsContent)
-	rightBox := boxStyle.Render(viewContent)
-	
-	mainContent := lipgloss.JoinHorizontal(lipgloss.Center, leftBox, rightBox)
-	
-	ui := lipgloss.JoinVertical(lipgloss.Center, header, "\n", mainContent)
-	
-	return lipgloss.Place(1920, 1080, lipgloss.Center, lipgloss.Center, ui)
+	return docStyle.Render(lipgloss.JoinVertical(lipgloss.Top, header, boxStyle.Render(content)))
 }
 
+var docStyle = lipgloss.NewStyle().Margin(2, 4)
+
+type switchViewMsg string
+
 func main() {
-	// Simple Hub for WebSocket
 	h := &hub{clients: make(map[*websocket.Conn]bool), broadcast: make(chan []byte)}
-	
+	go h.run()
+
 	m := model{currentView: "HOME", hub: h, loadAvg: &load.AvgStat{}}
 	p := tea.NewProgram(m, tea.WithAltScreen())
 

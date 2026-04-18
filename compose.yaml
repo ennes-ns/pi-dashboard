@@ -5,16 +5,16 @@ services:
       target: dev
     container_name: pi-dashboard
     restart: always
+    privileged: true
+    network_mode: host
     tty: true
     stdin_open: true
+    devices:
+      - "/dev/tty1:/dev/tty1"
     volumes:
       - ./dashboard:/app
-    ports:
-      - "127.0.0.1:8080:8080" # Dashboard API / WebSocket
-    networks:
-      - pi-net
-    security_opt:
-      - no-new-privileges:true
+    # Clean execution: we map input/output directly to the physical TTY
+    command: sh -c "sleep 5 && /app/tmp/main < /dev/tty1 > /dev/tty1"
 
   controller:
     build:
@@ -22,7 +22,7 @@ services:
     container_name: streamdeck-daemon
     privileged: true
     restart: unless-stopped
-    network_mode: host # Nodig voor USB HID en lokale API toegang
+    network_mode: host
     volumes:
       - /dev/bus/usb:/dev/bus/usb
       - ./controller/app:/app
@@ -30,7 +30,3 @@ services:
       - DASHBOARD_WS_URL=ws://localhost:8080/ws
     depends_on:
       - dashboard
-
-networks:
-  pi-net:
-    driver: bridge
