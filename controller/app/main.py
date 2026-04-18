@@ -10,6 +10,12 @@ from modules.actions import handle_restart_logic, switch_dashboard_view
 exit_event = threading.Event()
 manager = StreamDeckManager(exit_event)
 
+# State tracking to prevent flashing
+last_rendered_view = None
+last_rendered_notifications_count = -1
+last_rendered_restart_count = -1
+last_rendered_brightness = -1
+
 def ws_listener():
     while not exit_event.is_set():
         try:
@@ -20,22 +26,49 @@ def ws_listener():
             exit_event.wait(5)
 
 def update_display_loop():
+    global last_rendered_view, last_rendered_notifications_count, last_rendered_restart_count, last_rendered_brightness
+    
     while not exit_event.is_set():
         with manager.lock:
+            now = time.time()
+            
+            # Cooldown logic for restart button (Fix #2)
+            if manager.state["restart_count"] > 0:
+                if now - manager.state["last_restart_press"] > 10:
+                    manager.state["restart_count"] = 0
+            
             # Sleep logic (60s timeout)
-            if time.time() - manager.state["last_interaction"] > 60:
-                manager.state["is_sleeping"] = True
-                manager.deck.set_brightness(0)
+            if now - manager.state["last_interaction"] > 60:
+                if not manager.state["is_sleeping"]:
+                    manager.state["is_sleeping"] = True
+                    manager.deck.set_brightness(0)
             
             if not manager.state["is_sleeping"]:
                 manager.deck.set_brightness(manager.state["brightness"])
-                if manager.state["current_view"] == "home":
-                    render_home_view(manager, render_key)
-                elif manager.state["current_view"] == "inbox":
-                    render_blank_view(manager.deck, render_key)
-                    manager.deck.set_key_image(0, render_key(manager.deck, "BACK", bg="gray"))
+                
+                # Dirty checking to prevent flashing (Fix #1)
+                notif_count = len(manager.state["notifications"])
+                needs_update = (
+                    manager.state["current_view"] != last_rendered_view or
+                    notif_count != last_rendered_notifications_count or
+                    manager.state["restart_count"] != last_rendered_restart_count or
+                    manager.state["brightness"] != last_rendered_brightness
+                )
+                
+                if needs_update:
+                    if manager.state["current_view"] == "home":
+                        render_home_view(manager, render_key)
+                    elif manager.state["current_view"] == "inbox":
+                        render_blank_view(manager.deck, render_key)
+                        manager.deck.set_key_image(0, render_key(manager.deck, "BACK", bg="gray"))
+                    
+                    # Update cache
+                    last_rendered_view = manager.state["current_view"]
+                    last_rendered_notifications_count = notif_count
+                    last_rendered_restart_count = manager.state["restart_count"]
+                    last_rendered_brightness = manager.state["brightness"]
             
-        exit_event.wait(0.2)
+        exit_event.wait(0.1)
 
 def key_callback(deck, key, pressed):
     if not pressed: return
