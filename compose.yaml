@@ -1,19 +1,36 @@
 services:
-  pi-dashboard:
-    build: 
-      context: .
-      target: dev # We gebruiken de dev stage voor live-reload
+  dashboard:
+    build:
+      context: ./dashboard
+      target: dev
     container_name: pi-dashboard
     restart: always
     tty: true
     stdin_open: true
     volumes:
-      - .:/app # De "magic": je lokale code wordt in de container gespiegeld
+      - ./dashboard:/app
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8080:8080" # Dashboard API / WebSocket
     networks:
-      - dashboard-net
+      - pi-net
+    security_opt:
+      - no-new-privileges:true
+
+  controller:
+    build:
+      context: ./controller
+    container_name: streamdeck-daemon
+    privileged: true
+    restart: unless-stopped
+    network_mode: host # Nodig voor USB HID en lokale API toegang
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - ./controller/app:/app
+    environment:
+      - DASHBOARD_WS_URL=ws://localhost:8080/ws
+    depends_on:
+      - dashboard
 
 networks:
-  dashboard-net:
+  pi-net:
     driver: bridge

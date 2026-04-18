@@ -1,0 +1,7 @@
+streamdeck
+Pillow
+requests
+Flask
+wakeonlan
+websocket-client
+websockets
