@@ -5,3 +5,4 @@ bin/
 dist/
 .env
 .DS_Store
+tmp/
